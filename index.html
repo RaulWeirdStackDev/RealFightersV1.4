@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Unity Web Player | Real Fighters</title>
+    <link rel="shortcut icon" href="TemplateData/favicon.ico" />
+    <link rel="stylesheet" href="TemplateData/style.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      :root {
+        --controls-height: 120px;
+        --btn-size: 50px;
+        --btn-gap: 10px;
+      }
+
+      body { 
+        padding: 0; 
+        margin: 0;
+        overflow: hidden;
+      }
+
+      .canvas-wrapper {
+        box-sizing: border-box;
+        padding: 8px;
+      }
+
+      /* Desktop */
+      #unity-container.unity-desktop {
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        position: absolute;
+      }
+
+      /* Mobile */
+      #unity-container.unity-mobile {
+        position: fixed;
+        width: 100%;
+        height: 100%;
+        left: 0;
+        top: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      #unity-canvas {
+        background: #231F20;
+        display: block;
+        margin: 0 auto;
+      }
+
+      /* Loading */
+      #unity-loading-bar {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        display: none;
+        z-index: 100;
+      }
+      
+      #unity-logo { 
+        width: 154px; 
+        height: 130px; 
+        background: url('TemplateData/unity-logo-dark.png') no-repeat center;
+      }
+      
+      #unity-progress-bar-empty { 
+        width: 141px; 
+        height: 18px; 
+        margin-top: 10px; 
+        margin-left: 6.5px; 
+        background: url('TemplateData/progress-bar-empty-dark.png') no-repeat center;
+      }
+      
+      #unity-progress-bar-full { 
+        width: 0%; 
+        height: 18px; 
+        margin-top: 10px; 
+        background: url('TemplateData/progress-bar-full-dark.png') no-repeat center;
+      }
+
+      #unity-warning {
+        position: absolute;
+        left: 50%;
+        top: 5%;
+        transform: translate(-50%);
+        background: white;
+        padding: 10px;
+        display: none;
+        z-index: 100;
+      }
+
+      /* ===== Mobile Controls ===== */
+      .mobile-controls {
+        display: none;
+      }
+
+      /* Solo en móvil portrait */
+      @media (max-width: 768px) and (orientation: portrait) {
+        #unity-container.unity-mobile {
+          flex-direction: column;
+          height: 100vh;
+          overflow: hidden;
+        }
+
+        #unity-container.unity-mobile .canvas-wrapper {
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+          padding: 0;
+          flex-shrink: 0;
+          /* Solo tomar el espacio que necesita el canvas */
+          height: auto;
+        }
+
+        #unity-container.unity-mobile #unity-canvas {
+          /* Canvas ocupa todo el ancho, alto proporcional al aspect ratio 960/450 */
+          width: 100vw !important;
+          height: calc(100vw * 450 / 960) !important;
+          max-height: calc(100vh - var(--controls-height));
+        }
+
+        #unity-container.unity-mobile .mobile-controls {
+          display: flex;
+          position: relative;
+          height: var(--controls-height);
+          padding: 10px;
+          justify-content: space-between;
+          align-items: center;
+          background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.3) 100%);
+          border-top: 1px solid rgba(255,255,255,0.1);
+          flex-shrink: 0;
+        }
+
+        .controls-left {
+          display: flex;
+          gap: var(--btn-gap);
+        }
+
+        .controls-right {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .actions-grid {
+          display: grid;
+          grid-template-columns: repeat(2, var(--btn-size));
+          grid-template-rows: repeat(2, var(--btn-size));
+          gap: 6px;
+        }
+
+        .btn {
+          width: var(--btn-size);
+          height: var(--btn-size);
+          border-radius: 12px;
+          font-size: 14px;
+          font-weight: bold;
+          background: linear-gradient(145deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.05) 100%);
+          color: #fff;
+          border: 2px solid rgba(255,255,255,0.3);
+          cursor: pointer;
+          user-select: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.1s ease;
+          text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .btn:active {
+          transform: scale(0.95);
+          background: linear-gradient(145deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.15) 100%);
+          box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+        }
+
+        .btn:hover {
+          border-color: rgba(255,255,255,0.5);
+        }
+
+        /* Botones direccionales */
+        .btn.direction {
+          background: linear-gradient(145deg, rgba(100,149,237,0.6) 0%, rgba(100,149,237,0.3) 100%);
+          border-color: rgba(100,149,237,0.8);
+        }
+
+        .btn.direction:active {
+          background: linear-gradient(145deg, rgba(100,149,237,0.8) 0%, rgba(100,149,237,0.5) 100%);
+        }
+
+        /* Botón de bloqueo */
+        .btn.block {
+          background: linear-gradient(145deg, rgba(255,69,0,0.6) 0%, rgba(255,69,0,0.3) 100%);
+          border-color: rgba(255,69,0,0.8);
+          width: calc(var(--btn-size) * 1.1);
+          height: calc(var(--btn-size) * 0.8);
+        }
+
+        .btn.block:active {
+          background: linear-gradient(145deg, rgba(255,69,0,0.8) 0%, rgba(255,69,0,0.5) 100%);
+        }
+      }
+
+      /* Landscape mobile - ocultar controles */
+      @media (max-width: 768px) and (orientation: landscape) {
+        #unity-container.unity-mobile .mobile-controls {
+          display: none;
+        }
+        
+        #unity-container.unity-mobile .canvas-wrapper {
+          height: 100vh;
+        }
+        
+        #unity-container.unity-mobile #unity-canvas {
+          width: 100%;
+          height: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="unity-container" class="unity-desktop">
+      <div class="canvas-wrapper">
+        <canvas id="unity-canvas" width="960" height="450" tabindex="-1"></canvas>
+      </div>
+
+      <div id="unity-loading-bar">
+        <div id="unity-logo"></div>
+        <div id="unity-progress-bar-empty">
+          <div id="unity-progress-bar-full"></div>
+        </div>
+      </div>
+
+      <div id="unity-warning"> </div>
+
+      <!-- Controles móviles - Solo visible en portrait -->
+      <div class="mobile-controls">
+        <div class="controls-left">
+          <button id="btn-left" class="btn direction">←</button>
+          <button id="btn-right" class="btn direction">→</button>
+        </div>
+        <div class="controls-right">
+          <div class="actions-grid">
+            <button id="btn-punch1" class="btn">👊</button>
+            <button id="btn-punch2" class="btn">✊</button>
+            <button id="btn-kick1" class="btn">🦶</button>
+            <button id="btn-kick2" class="btn">🥾</button>
+          </div>
+          <button id="btn-block" class="btn block">🛡️</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      var canvas = document.querySelector("#unity-canvas");
+
+      function unityShowBanner(msg, type) {
+        var warningBanner = document.querySelector("#unity-warning");
+        function updateBannerVisibility() {
+          warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+        }
+        var div = document.createElement('div');
+        div.innerHTML = msg;
+        warningBanner.appendChild(div);
+        if (type == 'error') div.style = 'background: red; padding: 10px;';
+        else {
+          if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+          setTimeout(function() {
+            warningBanner.removeChild(div);
+            updateBannerVisibility();
+          }, 5000);
+        }
+        updateBannerVisibility();
+      }
+
+      var buildUrl = "Build";
+      var loaderUrl = buildUrl + "/Web1.4.loader.js";
+      var config = {
+        arguments: [],
+        dataUrl: buildUrl + "/Web1.4.data",
+        frameworkUrl: buildUrl + "/Web1.4.framework.js",
+        codeUrl: buildUrl + "/Web1.4.wasm",
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: "DefaultCompany",
+        productName: "Real Fighters",
+        productVersion: "1.0",
+        showBanner: unityShowBanner,
+      };
+
+      // Detectar móvil y configurar
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        document.querySelector("#unity-container").classList.remove("unity-desktop");
+        document.querySelector("#unity-container").classList.add("unity-mobile");
+        canvas.classList.add("unity-mobile");
+      } else {
+        canvas.style.width = "960px";
+        canvas.style.height = "450px";
+      }
+
+      document.querySelector("#unity-loading-bar").style.display = "block";
+
+      var script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(canvas, config, (progress) => {
+          document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
+        }).then((unityInstance) => {
+          document.querySelector("#unity-loading-bar").style.display = "none";
+        }).catch((message) => {
+          alert(message);
+        });
+      };
+      document.body.appendChild(script);
+
+      /* ===== Simulación de Teclado para Controles Móviles ===== */
+      
+      // Mapeo de botones a teclas
+      const keyMappings = {
+        left: ["ArrowLeft", "a"],
+        right: ["ArrowRight", "d"], 
+        punch1: ["z"],
+        punch2: ["s"],
+        kick1: ["x"],
+        kick2: ["c"],
+        block: ["f"]
+      };
+
+      // Función para simular eventos de teclado
+      function simulateKeyEvent(keys, eventType) {
+        keys.forEach(key => {
+          const event = new KeyboardEvent(eventType, {
+            key: key,
+            code: key === 'ArrowLeft' ? 'ArrowLeft' : 
+                  key === 'ArrowRight' ? 'ArrowRight' :
+                  `Key${key.toUpperCase()}`,
+            keyCode: key === 'ArrowLeft' ? 37 :
+                     key === 'ArrowRight' ? 39 :
+                     key.charCodeAt(0),
+            which: key === 'ArrowLeft' ? 37 :
+                   key === 'ArrowRight' ? 39 :
+                   key.charCodeAt(0),
+            bubbles: true,
+            cancelable: true
+          });
+          
+          // Enviar el evento al canvas y al document
+          canvas.dispatchEvent(event);
+          document.dispatchEvent(event);
+          window.dispatchEvent(event);
+        });
+      }
+
+      // Función para configurar un botón
+      function setupButton(buttonId, action) {
+        const button = document.getElementById(buttonId);
+        if (!button) return;
+
+        // Prevenir el comportamiento por defecto y la selección
+        button.addEventListener('selectstart', e => e.preventDefault());
+        button.addEventListener('contextmenu', e => e.preventDefault());
+
+        // Touch events para móviles
+        button.addEventListener('touchstart', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          simulateKeyEvent(keyMappings[action], 'keydown');
+        });
+
+        button.addEventListener('touchend', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          simulateKeyEvent(keyMappings[action], 'keyup');
+        });
+
+        // Mouse events para desktop (útil para pruebas)
+        button.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          simulateKeyEvent(keyMappings[action], 'keydown');
+        });
+
+        button.addEventListener('mouseup', (e) => {
+          e.preventDefault();
+          simulateKeyEvent(keyMappings[action], 'keyup');
+        });
+
+        // Prevenir que se "pegue" el botón
+        button.addEventListener('mouseleave', (e) => {
+          simulateKeyEvent(keyMappings[action], 'keyup');
+        });
+
+        button.addEventListener('touchcancel', (e) => {
+          e.preventDefault();
+          simulateKeyEvent(keyMappings[action], 'keyup');
+        });
+      }
+
+      // Configurar todos los botones
+      setupButton('btn-left', 'left');
+      setupButton('btn-right', 'right');
+      setupButton('btn-punch1', 'punch1');
+      setupButton('btn-punch2', 'punch2');
+      setupButton('btn-kick1', 'kick1');
+      setupButton('btn-kick2', 'kick2');
+      setupButton('btn-block', 'block');
+
+      // Logging para debug (puedes remover esto después)
+      console.log('Controles móviles configurados');
+      console.log('Mapeo de teclas:', keyMappings);
+    </script>
+  </body>
+</html>
